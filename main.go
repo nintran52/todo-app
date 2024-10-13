@@ -4,20 +4,26 @@ import (
 	"log"
 	"net/http"
 	"os"
-
-	pgRepo "todo-app/internal/repository/postgres"
-	"todo-app/item"
-	"todo-app/pkg/tokenprovider/jwt"
-	"todo-app/pkg/util"
-	"todo-app/user"
-
-	restApi "todo-app/internal/api/http/gin"
-	"todo-app/internal/api/http/gin/middleware"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/ulule/limiter/v3"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"todo-app/docs"
+	restApi "todo-app/internal/api/http/gin"
+	"todo-app/internal/api/http/gin/middleware"
+	pgRepo "todo-app/internal/repository/postgres"
+	"todo-app/item"
+	"todo-app/pkg/memcache"
+	"todo-app/pkg/tokenprovider/jwt"
+	"todo-app/pkg/util"
+	"todo-app/user"
 )
 
 type Status int
@@ -43,16 +49,29 @@ func main() {
 	r.Use(middleware.Recover())
 
 	apiVersion := r.Group("v1")
+	docs.SwaggerInfo.BasePath = "/v1"
 
 	itemRepo := pgRepo.NewItemRepo(db)
 	itemService := item.NewItemService(itemRepo)
 
 	userRepo := pgRepo.NewUserRepo(db)
 	hasher := util.NewMd5Hash()
-	tokenProvider := jwt.NewJWTProvider()
-	userService := user.NewUserService(userRepo, hasher, tokenProvider, 60*60*24*30)
+	tokenProvider := jwt.NewJWTProvider(os.Getenv("SECRET_KEY"))
+	tokenExpire := 60 * 60 * 24 * 30
+	userService := user.NewUserService(userRepo, hasher, tokenProvider, tokenExpire)
 
-	restApi.NewItemHandler(apiVersion, itemService)
+	authCache := memcache.NewUserCaching(memcache.NewRedisCache(), userRepo)
+	middlewareAuth := middleware.RequiredAuth(tokenProvider, authCache)
+
+	limiterRate := limiter.Rate{
+		Period: 5 * time.Second,
+		Limit:  3,
+	}
+	store := memory.NewStore()
+	limiter := limiter.New(store, limiterRate)
+	middlewareRateLimit := middleware.RateLimiter(limiter)
+
+	restApi.NewItemHandler(apiVersion, itemService, middlewareAuth, middlewareRateLimit)
 	restApi.NewUserHandler(apiVersion, userService)
 
 	r.GET("/ping", func(c *gin.Context) {
@@ -60,5 +79,8 @@ func main() {
 			"message": "pong",
 		})
 	})
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

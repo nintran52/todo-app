@@ -45,6 +45,18 @@ func (User) TableName() string {
 	return "users"
 }
 
+func (u *User) GetUserId() uuid.UUID {
+	return u.ID
+}
+
+func (u *User) GetEmail() string {
+	return u.Email
+}
+
+func (u *User) GetRole() string {
+	return u.Role.String()
+}
+
 type UserCreate struct {
 	ID        uuid.UUID
 	Email     string   `json:"email"`

@@ -10,6 +10,7 @@ import (
 
 type Item struct {
 	ID          uuid.UUID  `json:"id"`
+	UserID      uuid.UUID  `json:"user_id"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
 	Status      Status     `json:"status"`
@@ -21,6 +22,7 @@ func (Item) TableName() string { return "items" }
 
 type ItemCreation struct {
 	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 }
