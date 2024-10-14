@@ -1,0 +1,6 @@
+# Ignore files and directories that don't need to be copied
+.git
+node_modules
+*.log
+Dockerfile
+docker-compose.yml

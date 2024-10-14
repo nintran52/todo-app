@@ -11,10 +11,10 @@ import (
 
 type ItemService interface {
 	CreateItem(item *domain.ItemCreation) error
-	GetAllItem() ([]domain.Item, error)
-	GetItemByID(id uuid.UUID) (domain.Item, error)
-	UpdateItem(id uuid.UUID, item *domain.ItemUpdate) error
-	DeleteItem(id uuid.UUID) error
+	GetAllItem(userID uuid.UUID, paging *clients.Paging) ([]domain.Item, error)
+	GetItemByID(id, userID uuid.UUID) (domain.Item, error)
+	UpdateItem(id, userID uuid.UUID, item *domain.ItemUpdate) error
+	DeleteItem(id, userID uuid.UUID) error
 }
 
 type itemHandler struct {
@@ -57,7 +57,7 @@ func (h *itemHandler) CreateItemHandler(c *gin.Context) {
 	}
 
 	requester := c.MustGet(clients.CurrentUser).(clients.Requester)
-	item.UserID = requester.GetUserId()
+	item.UserID = requester.GetUserID()
 	if err := h.itemService.CreateItem(&item); err != nil {
 		c.JSON(http.StatusBadRequest, err)
 
@@ -78,14 +78,24 @@ func (h *itemHandler) CreateItemHandler(c *gin.Context) {
 // @Failure      500  {object}  clients.AppError    "Internal Server Error"
 // @Router       /items [get]
 func (h *itemHandler) GetAllItemHandler(c *gin.Context) {
-	items, err := h.itemService.GetAllItem()
+	var paging clients.Paging
+	if err := c.ShouldBind(&paging); err != nil {
+		c.JSON(http.StatusBadRequest, clients.ErrInvalidRequest(err))
+
+		return
+	}
+	paging.Process()
+
+	requester := c.MustGet(clients.CurrentUser).(clients.Requester)
+
+	items, err := h.itemService.GetAllItem(requester.GetUserID(), &paging)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, clients.ErrInvalidRequest(err))
 
 		return
 	}
 
-	c.JSON(http.StatusOK, clients.SimpleSuccessResponse(items))
+	c.JSON(http.StatusOK, clients.NewSuccessResponse(items, paging, nil))
 }
 
 // GetItemHandler retrieves an item by its ID.
@@ -109,7 +119,9 @@ func (h *itemHandler) GetItemHandler(c *gin.Context) {
 		return
 	}
 
-	item, err := h.itemService.GetItemByID(id)
+	requester := c.MustGet(clients.CurrentUser).(clients.Requester)
+
+	item, err := h.itemService.GetItemByID(id, requester.GetUserID())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 
@@ -148,7 +160,9 @@ func (h *itemHandler) UpdateItemHandler(c *gin.Context) {
 		return
 	}
 
-	if err := h.itemService.UpdateItem(id, &item); err != nil {
+	requester := c.MustGet(clients.CurrentUser).(clients.Requester)
+
+	if err := h.itemService.UpdateItem(id, requester.GetUserID(), &item); err != nil {
 		c.JSON(http.StatusBadRequest, err)
 
 		return
@@ -178,7 +192,9 @@ func (h *itemHandler) DeleteItemHandler(c *gin.Context) {
 		return
 	}
 
-	if err := h.itemService.DeleteItem(id); err != nil {
+	requester := c.MustGet(clients.CurrentUser).(clients.Requester)
+
+	if err := h.itemService.DeleteItem(id, requester.GetUserID()); err != nil {
 		c.JSON(http.StatusBadRequest, err)
 
 		return

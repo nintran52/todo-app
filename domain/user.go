@@ -45,7 +45,7 @@ func (User) TableName() string {
 	return "users"
 }
 
-func (u *User) GetUserId() uuid.UUID {
+func (u *User) GetUserID() uuid.UUID {
 	return u.ID
 }
 

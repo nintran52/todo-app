@@ -16,7 +16,7 @@ func (p TokenPayload) Role() string {
 }
 
 type Requester interface {
-	GetUserId() uuid.UUID
+	GetUserID() uuid.UUID
 	GetEmail() string
 	GetRole() string
 }

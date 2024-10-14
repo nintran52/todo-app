@@ -20,7 +20,7 @@ This is the APIs server for the **Todo App**, built using **Golang** and **Gin f
 Ensure you have the following installed:
 
 - **Go** (version 1.18 or higher)
-- **Docker** (optional for running with containers)
+- **Docker** (for running with containers)
 - **Postman or cURL** (for testing the APIs)
 - **Gin Framework** installed
 
@@ -45,6 +45,12 @@ Ensure you have the following installed:
    ```bash
    go run main.go
    ```
+
+### **Run by Docker**
+
+```bash
+docker-compose up --build
+```
 
 ---
 
@@ -146,10 +152,11 @@ After running the server, navigate to `http://localhost:8080/swagger/index.html`
 ```
 /todo-app
 │
-├── /clients               # Client models and error handling
 ├── /domain                # Domain models (e.g., Item, ItemUpdate)
-├── /handlers              # API handlers (Create, Read, Update, Delete)
-├── /services              # Business logic and item operations
+├── /internal              # API handlers (Create, Read, Update, Delete)
+├── /pkg                   # Client models and error handling
+├── /item                  # Business logic and item operations
+├── /users                 # Business logic and user operations
 ├── main.go                # Entry point of the application
 ├── go.mod                 # Dependencies file
 └── README.md              # Project documentation

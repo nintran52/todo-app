@@ -5,7 +5,6 @@ import (
 	"todo-app/domain"
 	"todo-app/pkg/clients"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -27,20 +26,33 @@ func (r *itemRepo) Save(item *domain.ItemCreation) error {
 	return nil
 }
 
-func (r *itemRepo) GetAll() ([]domain.Item, error) {
+func (r *itemRepo) GetAll(filter map[string]any, paging *clients.Paging) ([]domain.Item, error) {
 	items := []domain.Item{}
+	var query *gorm.DB
 
-	if err := r.db.Find(&items).Error; err != nil {
+	if f := filter; f != nil {
+		if v := f["user_id"]; v != "" {
+			query = r.db.Where("user_id = ?", v)
+		}
+	}
+
+	if err := query.Table(domain.Item{}.TableName()).Select("id").Count(&paging.Total).Error; err != nil {
+		return nil, clients.ErrDB(err)
+	}
+
+	query = r.db.Limit(paging.Limit).Offset((paging.Page - 1) * paging.Limit)
+
+	if err := query.Find(&items).Error; err != nil {
 		return nil, clients.ErrDB(err)
 	}
 
 	return items, nil
 }
 
-func (r *itemRepo) GetByID(id uuid.UUID) (domain.Item, error) {
+func (r *itemRepo) GetItem(filter map[string]any) (domain.Item, error) {
 	var item domain.Item
 
-	if err := r.db.Where("id = ?", id).First(&item).Error; err != nil {
+	if err := r.db.Where(filter).First(&item).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return domain.Item{}, clients.ErrRecordNotFound
 		}
@@ -51,16 +63,16 @@ func (r *itemRepo) GetByID(id uuid.UUID) (domain.Item, error) {
 	return item, nil
 }
 
-func (r *itemRepo) Update(id uuid.UUID, item *domain.ItemUpdate) error {
-	if err := r.db.Where("id = ?", id).Updates(&item).Error; err != nil {
+func (r *itemRepo) Update(filter map[string]any, item *domain.ItemUpdate) error {
+	if err := r.db.Where(filter).Updates(&item).Error; err != nil {
 		return clients.ErrDB(err)
 	}
 
 	return nil
 }
 
-func (r *itemRepo) Delete(id uuid.UUID) error {
-	if err := r.db.Table(domain.Item{}.TableName()).Where("id = ?", id).Delete(nil).Error; err != nil {
+func (r *itemRepo) Delete(filter map[string]any) error {
+	if err := r.db.Table(domain.Item{}.TableName()).Where(filter).Delete(nil).Error; err != nil {
 		return clients.ErrDB(err)
 	}
 

@@ -18,14 +18,13 @@ type RealStore interface {
 type userCaching struct {
 	store     Cache
 	realStore RealStore
-	once      *sync.Once
+	mutex     sync.Mutex
 }
 
 func NewUserCaching(store Cache, realStore RealStore) *userCaching {
 	return &userCaching{
 		store:     store,
 		realStore: realStore,
-		once:      new(sync.Once),
 	}
 }
 
@@ -33,40 +32,39 @@ func (uc *userCaching) GetUser(conditions map[string]interface{}) (*domain.User,
 	var ctx = context.Background()
 	var user domain.User
 
-	userId := conditions["id"].(uuid.UUID)
+	// Safely extract userId with comma-ok pattern to avoid panics
+	userId, ok := conditions["id"].(uuid.UUID)
+	if !ok {
+		return nil, fmt.Errorf("invalid user ID type")
+	}
+
 	key := fmt.Sprintf("user-%d", userId)
 
-	err := uc.store.Get(ctx, key, &user)
-
-	if err == nil && user.ID != uuid.Nil {
+	// Try to get the user from the cache
+	if err := uc.store.Get(ctx, key, &user); err == nil && user.ID != uuid.Nil {
 		return &user, nil
 	}
 
-	var userErr error
+	// Use a sync.Mutex or singleflight group to prevent duplicate requests
+	uc.mutex.Lock()
+	defer uc.mutex.Unlock()
 
-	uc.once.Do(func() {
-		realUser, userErr := uc.realStore.GetUser(conditions)
-
-		if userErr != nil {
-			log.Println(userErr)
-			return
-		}
-
-		// Update cache
-		user = *realUser
-		_ = uc.store.Set(ctx, key, realUser, time.Hour*2)
-
-	})
-
-	if userErr != nil {
-		return nil, userErr
-	}
-
-	err = uc.store.Get(ctx, key, &user)
-
-	if err == nil && user.ID != uuid.Nil {
+	// Double-check cache after acquiring the lock
+	if err := uc.store.Get(ctx, key, &user); err == nil && user.ID != uuid.Nil {
 		return &user, nil
 	}
 
-	return nil, err
+	// If not in cache, get the user from the real store
+	realUser, err := uc.realStore.GetUser(conditions)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	// Update the cache with the retrieved user
+	if cacheErr := uc.store.Set(ctx, key, realUser, time.Hour*2); cacheErr != nil {
+		log.Printf("failed to set cache: %v", cacheErr)
+	}
+
+	return realUser, nil
 }
