@@ -59,11 +59,21 @@ func (s *itemService) GetItemByID(id, userID uuid.UUID) (domain.Item, error) {
 	return item, nil
 }
 
-func (s *itemService) UpdateItem(id, userID uuid.UUID, item *domain.ItemUpdate) error {
-	item.UpdatedAt = time.Now()
-	err := s.itemRepo.Update(map[string]any{"id": id, "user_id": userID}, item)
+func (s *itemService) UpdateItem(id, userID uuid.UUID, itemUpdate *domain.ItemUpdate) error {
+	itemUpdate.UpdatedAt = time.Now()
+
+	item, err := s.itemRepo.GetItem(map[string]any{"id": id})
 	if err != nil {
-		return clients.ErrCannotUpdateEntity(item.TableName(), err)
+		return clients.ErrCannotGetEntity(itemUpdate.TableName(), err)
+	}
+
+	if item.UserID != userID {
+		return clients.ErrNoPermission(err)
+	}
+
+	err = s.itemRepo.Update(map[string]any{"id": id}, itemUpdate)
+	if err != nil {
+		return clients.ErrCannotUpdateEntity(itemUpdate.TableName(), err)
 	}
 
 	return nil

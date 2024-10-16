@@ -164,21 +164,6 @@ After running the server, navigate to `http://localhost:8080/swagger/index.html`
 
 ---
 
-## **Run with Docker (Optional)**
-
-1. Build the Docker image:
-
-   ```bash
-   docker build -t todo-app .
-   ```
-
-2. Run the container:
-   ```bash
-   docker run -p 8080:8080 todo-app
-   ```
-
----
-
 ## **Testing the API**
 
 You can test the API using **Postman** or **cURL**:
