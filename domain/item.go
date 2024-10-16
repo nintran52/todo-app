@@ -13,7 +13,7 @@ type Item struct {
 	UserID      uuid.UUID  `json:"-"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
-	Status      Status     `json:"status"`
+	Status      Status     `json:"status" gorm:"column:status"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
 }

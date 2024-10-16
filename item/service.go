@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate mockery --name ItemRepo
 type ItemRepo interface {
 	Save(item *domain.ItemCreation) error
 	GetAll(filter map[string]any, paging *clients.Paging) ([]domain.Item, error)
